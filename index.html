@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Search & Filter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+        }
+        .container {
+            width: 90%;
+            margin: auto;
+        }
+        .search-box, .currency-dropdown, select, input {
+            width: 100%;
+            padding: 8px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .product-card {
+            border: 1px solid #ddd;
+            padding: 10px;
+            width: 30%;
+            margin: 10px;
+            display: inline-block;
+            text-align: center;
+        }
+        .product-card img {
+            width: 100px;
+            height: 100px;
+        }
+        .filter-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Product Search & Filter</h2>
+        <input type="text" id="searchBox" class="search-box" placeholder="Search for a product..." oninput="filterProducts()">
+        <select id="currencySelect" class="currency-dropdown" onchange="updateCurrency()">
+            <option value="INR">Indian Rupee (INR)</option>
+            <option value="USD">US Dollar (USD)</option>
+            <option value="EUR">Euro (EUR)</option>
+            <option value="GBP">British Pound (GBP)</option>
+            <option value="JPY">Japanese Yen (JPY)</option>
+            <option value="CAD">Canadian Dollar (CAD)</option>
+        </select>
+        <div class="filter-section">
+            <select id="categoryFilter" onchange="filterProducts()">
+                <option value="">All Categories</option>
+            </select>
+            <input type="number" id="minPrice" placeholder="Min Price" oninput="filterProducts()">
+            <input type="number" id="maxPrice" placeholder="Max Price" oninput="filterProducts()">
+        </div>
+        <div id="productsContainer"></div>
+    </div>
+
+    <script>
+        let productsData = [];
+        const exchangeRates = { "USD": 1 };
+
+        const fetchProducts = () => {
+            fetch('https://fakestoreapi.com/products')
+                .then(res => res.json())
+                .then(data => {
+                    productsData = data;
+                    fetchCategories();
+                    updateCurrency();
+                });
+        };
+
+        const fetchExchangeRates = (targetCurrency) => {
+            fetch(`https://api.frankfurter.app/latest?from=USD&to=${targetCurrency}`)
+                .then(res => res.json())
+                .then(response => {
+                    exchangeRates[targetCurrency] = response.rates[targetCurrency] || 1;
+                    filterProducts();
+                });
+        };
+
+        const updateCurrency = () => {
+            const selectedCurrency = document.getElementById('currencySelect').value;
+            if (selectedCurrency === "USD") {
+                filterProducts();
+            } else {
+                fetchExchangeRates(selectedCurrency);
+            }
+        };
+
+        const filterProducts = () => {
+            const query = document.getElementById('searchBox').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const minPrice = parseFloat(document.getElementById('minPrice').value) || 0;
+            const maxPrice = parseFloat(document.getElementById('maxPrice').value) || Infinity;
+            const selectedCurrency = document.getElementById('currencySelect').value;
+            const conversionRate = exchangeRates[selectedCurrency] || 1;
+
+            const filteredProducts = productsData.filter(product => {
+                const originalPrice = product.price * conversionRate;
+                return (
+                    product.title.toLowerCase().includes(query) &&
+                    (!category || product.category === category) &&
+                    originalPrice >= minPrice && originalPrice <= maxPrice
+                );
+            });
+
+            displayProducts(filteredProducts);
+        };
+
+        const displayProducts = (products) => {
+            const container = document.getElementById('productsContainer');
+            container.innerHTML = "";
+            const selectedCurrency = document.getElementById('currencySelect').value;
+            const conversionRate = exchangeRates[selectedCurrency] || 1;
+
+            products.forEach(product => {
+                const originalPrice = product.price * conversionRate;
+                const discountedPrice = (originalPrice * 0.95).toFixed(2);
+
+                container.innerHTML += 
+                    `<div class="product-card">
+                        <img src="${product.image}" alt="${product.title}">
+                        <h3>${product.title}</h3>
+                        <p>${discountedPrice} ${selectedCurrency}</p>
+                        <p><s>${originalPrice.toFixed(2)} ${selectedCurrency}</s></p>
+                    </div>`;
+            });
+        };
+
+        const fetchCategories = () => {
+            fetch('https://fakestoreapi.com/products/categories')
+                .then(res => res.json())
+                .then(categories => {
+                    const categoryFilter = document.getElementById('categoryFilter');
+                    categories.forEach(category => {
+                        categoryFilter.innerHTML += `<option value="${category}">${category}</option>`;
+                    });
+                });
+        };
+
+        fetchProducts();
+    </script>
+</body>
+</html>
